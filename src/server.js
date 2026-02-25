@@ -4,6 +4,15 @@ const path = require("path");
 
 const PORT = process.env.PORT || 3000;
 const DATA_PATH = path.join(__dirname, "..", "data", "db.json");
+const PUBLIC_PATH = path.join(__dirname, "..", "public");
+
+const DEFAULT_UNITS = [
+  { id: "unt_un", name: "Unidade", code: "UN" },
+  { id: "unt_kg", name: "Quilograma", code: "KG" },
+  { id: "unt_lt", name: "Litro", code: "LT" },
+  { id: "unt_cx", name: "Caixa", code: "CX" },
+  { id: "unt_par", name: "Par", code: "PAR" }
+];
 
 function ensureDatabase() {
   const dir = path.dirname(DATA_PATH);
@@ -15,17 +24,38 @@ function ensureDatabase() {
   if (!fs.existsSync(DATA_PATH)) {
     const initialDb = {
       products: [],
-      movements: []
+      movements: [],
+      units: DEFAULT_UNITS
     };
 
     fs.writeFileSync(DATA_PATH, JSON.stringify(initialDb, null, 2));
   }
 }
 
+function normalizeDb(db) {
+  const normalized = { ...db };
+
+  if (!Array.isArray(normalized.products)) {
+    normalized.products = [];
+  }
+
+  if (!Array.isArray(normalized.movements)) {
+    normalized.movements = [];
+  }
+
+  if (!Array.isArray(normalized.units)) {
+    normalized.units = [...DEFAULT_UNITS];
+  }
+
+  return normalized;
+}
+
 function readDb() {
   ensureDatabase();
   const content = fs.readFileSync(DATA_PATH, "utf-8");
-  return JSON.parse(content);
+  const db = normalizeDb(JSON.parse(content));
+  writeDb(db);
+  return db;
 }
 
 function writeDb(data) {
@@ -62,12 +92,68 @@ function sendJson(res, statusCode, payload) {
   res.end(JSON.stringify(payload));
 }
 
+function sendFile(res, filePath, contentType = "text/html; charset=utf-8") {
+  if (!fs.existsSync(filePath)) {
+    res.writeHead(404, { "Content-Type": "application/json; charset=utf-8" });
+    res.end(JSON.stringify({ message: "Arquivo não encontrado." }));
+    return;
+  }
+
+  res.writeHead(200, { "Content-Type": contentType });
+  res.end(fs.readFileSync(filePath));
+}
+
+function handleStatic(req, res, pathname) {
+  if (req.method !== "GET") {
+    return false;
+  }
+
+  if (pathname === "/") {
+    sendFile(res, path.join(PUBLIC_PATH, "index.html"));
+    return true;
+  }
+
+  if (pathname === "/styles.css") {
+    sendFile(res, path.join(PUBLIC_PATH, "styles.css"), "text/css; charset=utf-8");
+    return true;
+  }
+
+  if (pathname === "/app.js") {
+    sendFile(res, path.join(PUBLIC_PATH, "app.js"), "application/javascript; charset=utf-8");
+    return true;
+  }
+
+  return false;
+}
+
 function findProduct(db, productId) {
   return db.products.find((product) => product.id === productId);
 }
 
+function findUnitByCode(db, code) {
+  return db.units.find((unit) => unit.code === String(code).trim().toUpperCase());
+}
+
 function createId(prefix = "id") {
   return `${prefix}_${Date.now()}_${Math.random().toString(16).slice(2, 8)}`;
+}
+
+function parseDate(dateString) {
+  if (!dateString) {
+    return new Date().toISOString();
+  }
+
+  const parsed = new Date(dateString);
+  if (Number.isNaN(parsed.getTime())) {
+    return null;
+  }
+
+  return parsed.toISOString();
+}
+
+function createMonthlyKey(date) {
+  const month = `${date.getMonth() + 1}`.padStart(2, "0");
+  return `${date.getFullYear()}-${month}`;
 }
 
 function listRoutes(req, res) {
@@ -75,13 +161,43 @@ function listRoutes(req, res) {
     service: "Controle de Almoxarifado",
     routes: {
       "GET /products": "Lista produtos",
-      "POST /products": "Cria produto { name, unit, minStock }",
+      "POST /products": "Cria produto { name, unit, minStock, purchasePrice }",
       "PATCH /products/:id": "Atualiza metadados do produto",
+      "GET /units": "Lista tipos de unidade",
+      "POST /units": "Cadastra tipo de unidade { name, code }",
       "GET /movements": "Lista movimentações",
-      "POST /movements": "Registra movimentação { productId, type, quantity, reason }",
-      "GET /report/low-stock": "Lista produtos abaixo do estoque mínimo"
+      "POST /movements": "Registra movimentação { productId, type, quantity, reason, date }",
+      "GET /report/low-stock": "Lista produtos abaixo do estoque mínimo",
+      "GET /report/analysis": "Resumo de consumo e gasto"
     }
   });
+}
+
+async function handleUnits(req, res, db, pathname) {
+  if (req.method === "GET" && pathname === "/units") {
+    return sendJson(res, 200, db.units);
+  }
+
+  if (req.method === "POST" && pathname === "/units") {
+    const payload = await parseBody(req);
+    const code = String(payload.code || "").trim().toUpperCase();
+    const name = String(payload.name || "").trim();
+
+    if (!name || !code || code.length > 6) {
+      return sendJson(res, 400, { message: "Informe nome e código da unidade (até 6 caracteres)." });
+    }
+
+    if (findUnitByCode(db, code)) {
+      return sendJson(res, 409, { message: "Código de unidade já cadastrado." });
+    }
+
+    const unit = { id: createId("unt"), name, code };
+    db.units.push(unit);
+    writeDb(db);
+    return sendJson(res, 201, unit);
+  }
+
+  return false;
 }
 
 async function handleProducts(req, res, db, pathname) {
@@ -91,19 +207,28 @@ async function handleProducts(req, res, db, pathname) {
 
   if (req.method === "POST" && pathname === "/products") {
     const payload = await parseBody(req);
-    const { name, unit = "UN", minStock = 0 } = payload;
+    const { name, unit = "UN", minStock = 0, purchasePrice = 0 } = payload;
 
-    if (!name || Number(minStock) < 0) {
+    const parsedMinStock = Number(minStock);
+    const parsedPrice = Number(purchasePrice);
+    const unitCode = String(unit).trim().toUpperCase();
+
+    if (!name || Number.isNaN(parsedMinStock) || parsedMinStock < 0 || Number.isNaN(parsedPrice) || parsedPrice < 0) {
       return sendJson(res, 400, {
-        message: "Informe um nome válido e estoque mínimo maior ou igual a zero."
+        message: "Informe nome, estoque mínimo válido e preço de compra maior ou igual a zero."
       });
+    }
+
+    if (!findUnitByCode(db, unitCode)) {
+      return sendJson(res, 400, { message: "Unidade não cadastrada." });
     }
 
     const product = {
       id: createId("prd"),
       name: String(name).trim(),
-      unit: String(unit).trim().toUpperCase(),
-      minStock: Number(minStock),
+      unit: unitCode,
+      minStock: parsedMinStock,
+      purchasePrice: parsedPrice,
       stock: 0,
       createdAt: new Date().toISOString()
     };
@@ -128,7 +253,11 @@ async function handleProducts(req, res, db, pathname) {
     }
 
     if (payload.unit !== undefined) {
-      product.unit = String(payload.unit).trim().toUpperCase();
+      const unitCode = String(payload.unit).trim().toUpperCase();
+      if (!findUnitByCode(db, unitCode)) {
+        return sendJson(res, 400, { message: "Unidade não cadastrada." });
+      }
+      product.unit = unitCode;
     }
 
     if (payload.minStock !== undefined) {
@@ -137,6 +266,14 @@ async function handleProducts(req, res, db, pathname) {
         return sendJson(res, 400, { message: "Estoque mínimo inválido." });
       }
       product.minStock = parsed;
+    }
+
+    if (payload.purchasePrice !== undefined) {
+      const parsedPrice = Number(payload.purchasePrice);
+      if (Number.isNaN(parsedPrice) || parsedPrice < 0) {
+        return sendJson(res, 400, { message: "Preço de compra inválido." });
+      }
+      product.purchasePrice = parsedPrice;
     }
 
     writeDb(db);
@@ -153,12 +290,20 @@ async function handleMovements(req, res, db, pathname) {
 
   if (req.method === "POST" && pathname === "/movements") {
     const payload = await parseBody(req);
-    const { productId, type, quantity, reason = "" } = payload;
+    const {
+      productId,
+      type,
+      quantity,
+      reason = "",
+      date
+    } = payload;
 
     const parsedQuantity = Number(quantity);
-    if (!productId || !["IN", "OUT"].includes(type) || Number.isNaN(parsedQuantity) || parsedQuantity <= 0) {
+    const movementDate = parseDate(date);
+
+    if (!productId || !["IN", "OUT"].includes(type) || Number.isNaN(parsedQuantity) || parsedQuantity <= 0 || !movementDate) {
       return sendJson(res, 400, {
-        message: "Dados inválidos. Use { productId, type: IN|OUT, quantity > 0 }."
+        message: "Dados inválidos. Use { productId, type: IN|OUT, quantity > 0, date válido(opcional) }."
       });
     }
 
@@ -184,7 +329,7 @@ async function handleMovements(req, res, db, pathname) {
       type,
       quantity: parsedQuantity,
       reason: String(reason),
-      at: new Date().toISOString()
+      at: movementDate
     };
 
     db.movements.push(movement);
@@ -199,10 +344,54 @@ async function handleMovements(req, res, db, pathname) {
   return false;
 }
 
+function buildAnalysis(db) {
+  const monthly = {};
+  let totalConsumed = 0;
+  let totalSpent = 0;
+
+  db.movements.forEach((movement) => {
+    const product = findProduct(db, movement.productId);
+    const date = new Date(movement.at);
+    const key = createMonthlyKey(date);
+
+    if (!monthly[key]) {
+      monthly[key] = {
+        month: key,
+        consumedQuantity: 0,
+        spentValue: 0
+      };
+    }
+
+    if (movement.type === "OUT") {
+      const spent = movement.quantity * Number(product?.purchasePrice || 0);
+      totalConsumed += movement.quantity;
+      totalSpent += spent;
+      monthly[key].consumedQuantity += movement.quantity;
+      monthly[key].spentValue += spent;
+    }
+  });
+
+  const monthlyList = Object.values(monthly)
+    .sort((a, b) => a.month.localeCompare(b.month))
+    .slice(-6);
+
+  return {
+    summary: {
+      totalConsumed,
+      totalSpent: Number(totalSpent.toFixed(2))
+    },
+    monthly: monthlyList
+  };
+}
+
 function handleReports(req, res, db, pathname) {
   if (req.method === "GET" && pathname === "/report/low-stock") {
     const lowStock = db.products.filter((product) => product.stock <= product.minStock);
     return sendJson(res, 200, lowStock);
+  }
+
+  if (req.method === "GET" && pathname === "/report/analysis") {
+    return sendJson(res, 200, buildAnalysis(db));
   }
 
   return false;
@@ -215,8 +404,18 @@ const server = http.createServer(async (req, res) => {
   try {
     const db = readDb();
 
-    if (req.method === "GET" && pathname === "/") {
+    const staticResult = handleStatic(req, res, pathname);
+    if (staticResult !== false) {
+      return;
+    }
+
+    if (req.method === "GET" && pathname === "/api") {
       return listRoutes(req, res);
+    }
+
+    const unitsResult = await handleUnits(req, res, db, pathname);
+    if (unitsResult !== false) {
+      return;
     }
 
     const productsResult = await handleProducts(req, res, db, pathname);

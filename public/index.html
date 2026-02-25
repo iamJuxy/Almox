@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Almoxarifado</title>
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <header class="topbar">
+      <h1>Controle de Almoxarifado</h1>
+      <p>Interface com HTML/CSS nativos + análise de consumo e gasto</p>
+    </header>
+
+    <main class="layout">
+      <section class="card">
+        <h2>Tipo de unidade</h2>
+        <form id="unitForm" class="form-grid">
+          <label>
+            Nome da unidade
+            <input type="text" name="name" placeholder="Ex.: Metro" required />
+          </label>
+          <label>
+            Código
+            <input type="text" name="code" placeholder="Ex.: MT" maxlength="6" required />
+          </label>
+          <button type="submit">Cadastrar unidade</button>
+        </form>
+      </section>
+
+      <section class="card">
+        <h2>Novo produto</h2>
+        <form id="productForm" class="form-grid">
+          <label>
+            Nome
+            <input type="text" name="name" required />
+          </label>
+          <label>
+            Unidade
+            <select name="unit" id="productUnit" required></select>
+          </label>
+          <label>
+            Estoque mínimo
+            <input type="number" name="minStock" min="0" value="0" />
+          </label>
+          <label>
+            Preço de compra (R$)
+            <input type="number" step="0.01" name="purchasePrice" min="0" value="0" />
+          </label>
+          <button type="submit">Cadastrar produto</button>
+        </form>
+      </section>
+
+      <section class="card">
+        <h2>Movimentação</h2>
+        <form id="movementForm" class="form-grid">
+          <label>
+            Produto
+            <select name="productId" id="movementProduct" required></select>
+          </label>
+          <label>
+            Tipo
+            <select name="type">
+              <option value="IN">Entrada</option>
+              <option value="OUT">Saída</option>
+            </select>
+          </label>
+          <label>
+            Quantidade
+            <input type="number" name="quantity" min="1" required />
+          </label>
+          <label>
+            Data da movimentação
+            <input type="datetime-local" name="date" />
+          </label>
+          <label class="full-width">
+            Motivo
+            <input type="text" name="reason" placeholder="Ex.: compra, ajuste, consumo" />
+          </label>
+          <button type="submit">Registrar movimentação</button>
+        </form>
+      </section>
+
+      <section class="card wide">
+        <div class="section-title">
+          <h2>Produtos</h2>
+          <button id="refreshProducts" type="button">Atualizar</button>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Produto</th>
+                <th>Unidade</th>
+                <th>Mínimo</th>
+                <th>Estoque</th>
+                <th>Preço compra</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody id="productsTableBody"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <section class="card wide">
+        <div class="section-title">
+          <h2>Últimas movimentações</h2>
+          <button id="refreshMovements" type="button">Atualizar</button>
+        </div>
+        <ul id="movementsList" class="movements-list"></ul>
+      </section>
+
+      <section class="card wide">
+        <div class="section-title">
+          <h2>Análise de consumo e gasto</h2>
+          <button id="refreshAnalysis" type="button">Atualizar</button>
+        </div>
+        <div class="kpis">
+          <article>
+            <h3>Consumo total</h3>
+            <p id="totalConsumed">0</p>
+          </article>
+          <article>
+            <h3>Gasto total estimado</h3>
+            <p id="totalSpent">R$ 0,00</p>
+          </article>
+        </div>
+        <div id="analysisChart" class="chart"></div>
+      </section>
+    </main>
+
+    <p id="feedback" class="feedback" aria-live="polite"></p>
+
+    <script src="/app.js"></script>
+  </body>
+</html>
