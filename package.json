@@ -1,0 +1,16 @@
+{
+  "name": "almox-base",
+  "version": "1.0.0",
+  "description": "Base de controle de almoxarifado em JavaScript com persistência local.",
+  "main": "src/server.js",
+  "scripts": {
+    "start": "node src/server.js",
+    "check": "node --check src/server.js"
+  },
+  "keywords": [
+    "almoxarifado",
+    "estoque",
+    "javascript"
+  ],
+  "license": "MIT"
+}
