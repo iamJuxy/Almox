@@ -26,6 +26,10 @@ function brl(value) {
   });
 }
 
+function formatDate(value) {
+  return new Date(value).toLocaleDateString('pt-BR');
+}
+
 async function api(path, options = {}) {
   const response = await fetch(path, {
     headers: { 'Content-Type': 'application/json' },
@@ -52,12 +56,33 @@ function renderUnits(units) {
   });
 }
 
+function priorityScore(product) {
+  if (product.stock <= product.minStock) {
+    return 0;
+  }
+
+  return 1;
+}
+
 function renderProducts(products) {
   productsCache = products;
   productsTableBody.innerHTML = '';
   movementProduct.innerHTML = '';
 
-  products.forEach((product) => {
+  const sortedProducts = products
+    .slice()
+    .sort((a, b) => {
+      const scoreDiff = priorityScore(a) - priorityScore(b);
+      if (scoreDiff !== 0) {
+        return scoreDiff;
+      }
+
+      const aGap = a.stock - a.minStock;
+      const bGap = b.stock - b.minStock;
+      return aGap - bGap;
+    });
+
+  sortedProducts.forEach((product) => {
     const low = product.stock <= product.minStock;
     const row = document.createElement('tr');
     row.innerHTML = `
@@ -69,7 +94,9 @@ function renderProducts(products) {
       <td class="${low ? 'status-alert' : 'status-ok'}">${low ? 'Baixo' : 'OK'}</td>
     `;
     productsTableBody.appendChild(row);
+  });
 
+  products.forEach((product) => {
     const option = document.createElement('option');
     option.value = product.id;
     option.textContent = `${product.name} (${product.stock} ${product.unit})`;
@@ -86,9 +113,8 @@ function renderMovements(movements) {
     .slice(0, 8)
     .forEach((movement) => {
       const item = document.createElement('li');
-      const date = new Date(movement.at).toLocaleString('pt-BR');
       const product = productsCache.find((p) => p.id === movement.productId);
-      item.textContent = `${movement.type === 'IN' ? 'Entrada' : 'Saída'} · ${product ? product.name : movement.productId} · ${movement.quantity} · ${date} · ${movement.reason || 'Sem motivo'}`;
+      item.textContent = `${movement.type === 'IN' ? 'Entrada' : 'Saída'} · ${product ? product.name : movement.productId} · ${movement.quantity} · ${formatDate(movement.at)} · ${movement.reason || 'Sem motivo'}`;
       movementsList.appendChild(item);
     });
 }

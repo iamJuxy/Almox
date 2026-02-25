@@ -140,15 +140,16 @@ function createId(prefix = "id") {
 
 function parseDate(dateString) {
   if (!dateString) {
-    return new Date().toISOString();
+    return new Date().toISOString().slice(0, 10);
   }
 
-  const parsed = new Date(dateString);
+  const normalized = String(dateString).trim();
+  const parsed = new Date(`${normalized}T00:00:00`);
   if (Number.isNaN(parsed.getTime())) {
     return null;
   }
 
-  return parsed.toISOString();
+  return parsed.toISOString().slice(0, 10);
 }
 
 function createMonthlyKey(date) {
@@ -166,7 +167,7 @@ function listRoutes(req, res) {
       "GET /units": "Lista tipos de unidade",
       "POST /units": "Cadastra tipo de unidade { name, code }",
       "GET /movements": "Lista movimentações",
-      "POST /movements": "Registra movimentação { productId, type, quantity, reason, date }",
+      "POST /movements": "Registra movimentação { productId, type, quantity, reason, date(YYYY-MM-DD) }",
       "GET /report/low-stock": "Lista produtos abaixo do estoque mínimo",
       "GET /report/analysis": "Resumo de consumo e gasto"
     }
@@ -303,7 +304,7 @@ async function handleMovements(req, res, db, pathname) {
 
     if (!productId || !["IN", "OUT"].includes(type) || Number.isNaN(parsedQuantity) || parsedQuantity <= 0 || !movementDate) {
       return sendJson(res, 400, {
-        message: "Dados inválidos. Use { productId, type: IN|OUT, quantity > 0, date válido(opcional) }."
+        message: "Dados inválidos. Use { productId, type: IN|OUT, quantity > 0, date YYYY-MM-DD (opcional) }."
       });
     }
 

@@ -9,50 +9,12 @@
   <body>
     <header class="topbar">
       <h1>Controle de Almoxarifado</h1>
-      <p>Interface com HTML/CSS nativos + análise de consumo e gasto</p>
+      <p>Painel principal com foco em movimentação, estoque atual e análise de consumo</p>
     </header>
 
     <main class="layout">
-      <section class="card">
-        <h2>Tipo de unidade</h2>
-        <form id="unitForm" class="form-grid">
-          <label>
-            Nome da unidade
-            <input type="text" name="name" placeholder="Ex.: Metro" required />
-          </label>
-          <label>
-            Código
-            <input type="text" name="code" placeholder="Ex.: MT" maxlength="6" required />
-          </label>
-          <button type="submit">Cadastrar unidade</button>
-        </form>
-      </section>
-
-      <section class="card">
-        <h2>Novo produto</h2>
-        <form id="productForm" class="form-grid">
-          <label>
-            Nome
-            <input type="text" name="name" required />
-          </label>
-          <label>
-            Unidade
-            <select name="unit" id="productUnit" required></select>
-          </label>
-          <label>
-            Estoque mínimo
-            <input type="number" name="minStock" min="0" value="0" />
-          </label>
-          <label>
-            Preço de compra (R$)
-            <input type="number" step="0.01" name="purchasePrice" min="0" value="0" />
-          </label>
-          <button type="submit">Cadastrar produto</button>
-        </form>
-      </section>
-
-      <section class="card">
-        <h2>Movimentação</h2>
+      <section class="card wide">
+        <h2>Página inicial · Movimentação</h2>
         <form id="movementForm" class="form-grid">
           <label>
             Produto
@@ -71,7 +33,7 @@
           </label>
           <label>
             Data da movimentação
-            <input type="datetime-local" name="date" />
+            <input type="date" name="date" />
           </label>
           <label class="full-width">
             Motivo
@@ -83,7 +45,7 @@
 
       <section class="card wide">
         <div class="section-title">
-          <h2>Produtos</h2>
+          <h2>Produtos atuais (prioridade: baixo estoque)</h2>
           <button id="refreshProducts" type="button">Atualizar</button>
         </div>
         <div class="table-wrap">
@@ -105,14 +67,6 @@
 
       <section class="card wide">
         <div class="section-title">
-          <h2>Últimas movimentações</h2>
-          <button id="refreshMovements" type="button">Atualizar</button>
-        </div>
-        <ul id="movementsList" class="movements-list"></ul>
-      </section>
-
-      <section class="card wide">
-        <div class="section-title">
           <h2>Análise de consumo e gasto</h2>
           <button id="refreshAnalysis" type="button">Atualizar</button>
         </div>
@@ -128,6 +82,57 @@
         </div>
         <div id="analysisChart" class="chart"></div>
       </section>
+
+      <section class="card wide">
+        <div class="section-title">
+          <h2>Últimas movimentações</h2>
+          <button id="refreshMovements" type="button">Atualizar</button>
+        </div>
+        <ul id="movementsList" class="movements-list"></ul>
+      </section>
+
+      <details class="card wide secondary-area">
+        <summary>Seções secundárias (cadastros)</summary>
+        <div class="secondary-grid">
+          <section class="sub-card">
+            <h2>Tipo de unidade</h2>
+            <form id="unitForm" class="form-grid">
+              <label>
+                Nome da unidade
+                <input type="text" name="name" placeholder="Ex.: Metro" required />
+              </label>
+              <label>
+                Código
+                <input type="text" name="code" placeholder="Ex.: MT" maxlength="6" required />
+              </label>
+              <button type="submit">Cadastrar unidade</button>
+            </form>
+          </section>
+
+          <section class="sub-card">
+            <h2>Novo produto</h2>
+            <form id="productForm" class="form-grid">
+              <label>
+                Nome
+                <input type="text" name="name" required />
+              </label>
+              <label>
+                Unidade
+                <select name="unit" id="productUnit" required></select>
+              </label>
+              <label>
+                Estoque mínimo
+                <input type="number" name="minStock" min="0" value="0" />
+              </label>
+              <label>
+                Preço de compra (R$)
+                <input type="number" step="0.01" name="purchasePrice" min="0" value="0" />
+              </label>
+              <button type="submit">Cadastrar produto</button>
+            </form>
+          </section>
+        </div>
+      </details>
     </main>
 
     <p id="feedback" class="feedback" aria-live="polite"></p>

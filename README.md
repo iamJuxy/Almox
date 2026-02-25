@@ -12,12 +12,17 @@ Servidor padrão: `http://localhost:3000`.
 
 ## Interface web (HTML + CSS nativos)
 
-A aplicação possui interface web em HTML/CSS puro com:
+A página inicial prioriza o uso diário com:
 
-- Cadastro de tipos de unidade e uso por seleção no cadastro de produtos
-- Cadastro de produtos com **preço de compra**
-- Registro de movimentações com **data de movimentação**
-- Painel com **análise de consumo e gasto estimado**
+- Movimentação de estoque
+- Lista de produtos atuais (ordenada com prioridade para baixo estoque)
+- Análise de consumo e gasto
+
+As áreas de cadastro de tipo de unidade e de produto ficam em **seções secundárias** (recolhidas).
+
+## Regras de data
+
+A movimentação utiliza apenas **data (YYYY-MM-DD)**, sem horário.
 
 ## Persistência interna
 
