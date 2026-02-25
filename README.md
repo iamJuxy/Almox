@@ -12,102 +12,36 @@ Servidor padrão: `http://localhost:3000`.
 
 ## Interface web (HTML + CSS nativos)
 
-A aplicação agora possui uma interface web simples em HTML/CSS puro:
+A aplicação possui interface web em HTML/CSS puro com:
 
-- Página principal: `GET /`
-- Arquivos estáticos: `GET /styles.css` e `GET /app.js`
-
-Também é possível consultar as rotas da API por:
-
-- `GET /api`
+- Cadastro de tipos de unidade e uso por seleção no cadastro de produtos
+- Cadastro de produtos com **preço de compra**
+- Registro de movimentações com **data de movimentação**
+- Painel com **análise de consumo e gasto estimado**
 
 ## Persistência interna
 
-Os dados são salvos automaticamente em:
+Os dados são salvos automaticamente em `data/db.json`.
 
-- `data/db.json`
-
-Estrutura do banco:
+Estrutura atual:
 
 ```json
 {
   "products": [],
-  "movements": []
+  "movements": [],
+  "units": []
 }
 ```
 
 ## Endpoints
 
-### 1) Criar produto
-
-`POST /products`
-
-Body:
-
-```json
-{
-  "name": "Parafuso 8mm",
-  "unit": "UN",
-  "minStock": 100
-}
-```
-
-### 2) Listar produtos
-
-`GET /products`
-
-### 3) Atualizar metadados do produto
-
-`PATCH /products/:id`
-
-Body (opcional):
-
-```json
-{
-  "name": "Parafuso 8mm zincado",
-  "unit": "UN",
-  "minStock": 120
-}
-```
-
-### 4) Registrar entrada/saída
-
-`POST /movements`
-
-Body:
-
-```json
-{
-  "productId": "prd_xxx",
-  "type": "IN",
-  "quantity": 50,
-  "reason": "Compra fornecedor A"
-}
-```
-
-- `type`: `IN` para entrada, `OUT` para saída.
-- O sistema bloqueia saída com estoque insuficiente.
-
-### 5) Listar movimentações
-
-`GET /movements`
-
-### 6) Relatório de baixo estoque
-
-`GET /report/low-stock`
-
-Retorna produtos com `stock <= minStock`.
-
-## Exemplo rápido com curl
-
-```bash
-curl -X POST http://localhost:3000/products \
-  -H "Content-Type: application/json" \
-  -d '{"name":"Luva","unit":"PAR","minStock":20}'
-
-curl -X POST http://localhost:3000/movements \
-  -H "Content-Type: application/json" \
-  -d '{"productId":"<ID_DO_PRODUTO>","type":"IN","quantity":100,"reason":"Entrada inicial"}'
-
-curl http://localhost:3000/report/low-stock
-```
+- `GET /api` lista rotas da API
+- `GET /units` lista tipos de unidade
+- `POST /units` cria tipo de unidade `{ name, code }`
+- `GET /products` lista produtos
+- `POST /products` cria produto `{ name, unit, minStock, purchasePrice }`
+- `PATCH /products/:id` atualiza produto
+- `GET /movements` lista movimentações
+- `POST /movements` registra movimentação `{ productId, type, quantity, reason, date }`
+- `GET /report/low-stock` produtos em baixo estoque
+- `GET /report/analysis` análise de consumo e gasto

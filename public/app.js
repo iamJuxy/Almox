@@ -1,14 +1,29 @@
+const unitForm = document.getElementById('unitForm');
 const productForm = document.getElementById('productForm');
 const movementForm = document.getElementById('movementForm');
 const productsTableBody = document.getElementById('productsTableBody');
 const movementsList = document.getElementById('movementsList');
 const movementProduct = document.getElementById('movementProduct');
+const productUnit = document.getElementById('productUnit');
+const analysisChart = document.getElementById('analysisChart');
+const totalConsumed = document.getElementById('totalConsumed');
+const totalSpent = document.getElementById('totalSpent');
 const feedback = document.getElementById('feedback');
+
+let productsCache = [];
+let unitsCache = [];
 
 function setFeedback(message, isError = false) {
   feedback.textContent = message;
   feedback.style.background = isError ? '#fee2e2' : '#e8f0ff';
   feedback.style.color = isError ? '#991b1b' : '#1d4ed8';
+}
+
+function brl(value) {
+  return Number(value || 0).toLocaleString('pt-BR', {
+    style: 'currency',
+    currency: 'BRL'
+  });
 }
 
 async function api(path, options = {}) {
@@ -25,7 +40,20 @@ async function api(path, options = {}) {
   return data;
 }
 
+function renderUnits(units) {
+  unitsCache = units;
+  productUnit.innerHTML = '';
+
+  units.forEach((unit) => {
+    const option = document.createElement('option');
+    option.value = unit.code;
+    option.textContent = `${unit.code} - ${unit.name}`;
+    productUnit.appendChild(option);
+  });
+}
+
 function renderProducts(products) {
+  productsCache = products;
   productsTableBody.innerHTML = '';
   movementProduct.innerHTML = '';
 
@@ -37,6 +65,7 @@ function renderProducts(products) {
       <td>${product.unit}</td>
       <td>${product.minStock}</td>
       <td>${product.stock}</td>
+      <td>${brl(product.purchasePrice)}</td>
       <td class="${low ? 'status-alert' : 'status-ok'}">${low ? 'Baixo' : 'OK'}</td>
     `;
     productsTableBody.appendChild(row);
@@ -53,25 +82,60 @@ function renderMovements(movements) {
 
   movements
     .slice()
-    .reverse()
+    .sort((a, b) => new Date(b.at) - new Date(a.at))
     .slice(0, 8)
     .forEach((movement) => {
       const item = document.createElement('li');
       const date = new Date(movement.at).toLocaleString('pt-BR');
-      item.textContent = `${movement.type === 'IN' ? 'Entrada' : 'Saída'} · ${movement.quantity} · ${date} · ${movement.reason || 'Sem motivo'}`;
+      const product = productsCache.find((p) => p.id === movement.productId);
+      item.textContent = `${movement.type === 'IN' ? 'Entrada' : 'Saída'} · ${product ? product.name : movement.productId} · ${movement.quantity} · ${date} · ${movement.reason || 'Sem motivo'}`;
       movementsList.appendChild(item);
     });
 }
 
+function renderAnalysis(report) {
+  totalConsumed.textContent = Number(report.summary.totalConsumed || 0).toLocaleString('pt-BR');
+  totalSpent.textContent = brl(report.summary.totalSpent || 0);
+
+  analysisChart.innerHTML = '';
+
+  const maxValue = Math.max(1, ...report.monthly.map((item) => item.spentValue || 0));
+
+  report.monthly.forEach((item) => {
+    const wrap = document.createElement('div');
+    wrap.className = 'bar-wrap';
+
+    const bar = document.createElement('div');
+    bar.className = 'bar';
+    bar.style.height = `${Math.max(4, ((item.spentValue || 0) / maxValue) * 130)}px`;
+    bar.title = `${item.month} · consumo ${item.consumedQuantity} · gasto ${brl(item.spentValue)}`;
+
+    const value = document.createElement('div');
+    value.className = 'bar-value';
+    value.textContent = brl(item.spentValue);
+
+    const label = document.createElement('div');
+    label.className = 'bar-label';
+    label.textContent = item.month;
+
+    wrap.append(value, bar, label);
+    analysisChart.appendChild(wrap);
+  });
+}
+
 async function refreshAll() {
   try {
-    const [products, movements] = await Promise.all([
+    const [units, products, movements, analysis] = await Promise.all([
+      api('/units'),
       api('/products'),
-      api('/movements')
+      api('/movements'),
+      api('/report/analysis')
     ]);
 
+    renderUnits(units);
     renderProducts(products);
     renderMovements(movements);
+    renderAnalysis(analysis);
 
     if (!products.length) {
       setFeedback('Nenhum produto cadastrado ainda.');
@@ -81,18 +145,40 @@ async function refreshAll() {
   }
 }
 
+unitForm.addEventListener('submit', async (event) => {
+  event.preventDefault();
+  const formData = new FormData(unitForm);
+  const payload = {
+    name: formData.get('name'),
+    code: formData.get('code')
+  };
+
+  try {
+    await api('/units', { method: 'POST', body: JSON.stringify(payload) });
+    unitForm.reset();
+    setFeedback('Unidade cadastrada com sucesso.');
+    await refreshAll();
+  } catch (error) {
+    setFeedback(error.message, true);
+  }
+});
+
 productForm.addEventListener('submit', async (event) => {
   event.preventDefault();
   const formData = new FormData(productForm);
   const payload = {
     name: formData.get('name'),
     unit: formData.get('unit'),
-    minStock: Number(formData.get('minStock'))
+    minStock: Number(formData.get('minStock')),
+    purchasePrice: Number(formData.get('purchasePrice'))
   };
 
   try {
     await api('/products', { method: 'POST', body: JSON.stringify(payload) });
     productForm.reset();
+    if (unitsCache[0]) {
+      productUnit.value = unitsCache[0].code;
+    }
     setFeedback('Produto cadastrado com sucesso.');
     await refreshAll();
   } catch (error) {
@@ -113,7 +199,8 @@ movementForm.addEventListener('submit', async (event) => {
     productId: formData.get('productId'),
     type: formData.get('type'),
     quantity: Number(formData.get('quantity')),
-    reason: formData.get('reason')
+    reason: formData.get('reason'),
+    date: formData.get('date') || undefined
   };
 
   try {
@@ -128,5 +215,6 @@ movementForm.addEventListener('submit', async (event) => {
 
 document.getElementById('refreshProducts').addEventListener('click', refreshAll);
 document.getElementById('refreshMovements').addEventListener('click', refreshAll);
+document.getElementById('refreshAnalysis').addEventListener('click', refreshAll);
 
 refreshAll();
