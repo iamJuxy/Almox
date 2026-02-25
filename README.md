@@ -10,6 +10,17 @@ npm start
 
 Servidor padrão: `http://localhost:3000`.
 
+## Interface web (HTML + CSS nativos)
+
+A aplicação agora possui uma interface web simples em HTML/CSS puro:
+
+- Página principal: `GET /`
+- Arquivos estáticos: `GET /styles.css` e `GET /app.js`
+
+Também é possível consultar as rotas da API por:
+
+- `GET /api`
+
 ## Persistência interna
 
 Os dados são salvos automaticamente em:
