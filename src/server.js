@@ -4,6 +4,7 @@ const path = require("path");
 
 const PORT = process.env.PORT || 3000;
 const DATA_PATH = path.join(__dirname, "..", "data", "db.json");
+const PUBLIC_PATH = path.join(__dirname, "..", "public");
 
 function ensureDatabase() {
   const dir = path.dirname(DATA_PATH);
@@ -60,6 +61,40 @@ function parseBody(req) {
 function sendJson(res, statusCode, payload) {
   res.writeHead(statusCode, { "Content-Type": "application/json; charset=utf-8" });
   res.end(JSON.stringify(payload));
+}
+
+function sendFile(res, filePath, contentType = "text/html; charset=utf-8") {
+  if (!fs.existsSync(filePath)) {
+    res.writeHead(404, { "Content-Type": "application/json; charset=utf-8" });
+    res.end(JSON.stringify({ message: "Arquivo não encontrado." }));
+    return;
+  }
+
+  res.writeHead(200, { "Content-Type": contentType });
+  res.end(fs.readFileSync(filePath));
+}
+
+function handleStatic(req, res, pathname) {
+  if (req.method !== "GET") {
+    return false;
+  }
+
+  if (pathname === "/") {
+    sendFile(res, path.join(PUBLIC_PATH, "index.html"));
+    return true;
+  }
+
+  if (pathname === "/styles.css") {
+    sendFile(res, path.join(PUBLIC_PATH, "styles.css"), "text/css; charset=utf-8");
+    return true;
+  }
+
+  if (pathname === "/app.js") {
+    sendFile(res, path.join(PUBLIC_PATH, "app.js"), "application/javascript; charset=utf-8");
+    return true;
+  }
+
+  return false;
 }
 
 function findProduct(db, productId) {
@@ -215,7 +250,12 @@ const server = http.createServer(async (req, res) => {
   try {
     const db = readDb();
 
-    if (req.method === "GET" && pathname === "/") {
+    const staticResult = handleStatic(req, res, pathname);
+    if (staticResult !== false) {
+      return;
+    }
+
+    if (req.method === "GET" && pathname === "/api") {
       return listRoutes(req, res);
     }
 
